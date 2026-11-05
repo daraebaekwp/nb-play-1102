@@ -2,6 +2,8 @@
 const CN = 'nb-offline-2';
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', e => e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CN).map(k => caches.delete(k)))).then(() => self.clients.claim())));
+// 서버가 주소를 돌려보낸(redirect) 응답은 그대로 쓰면 브라우저가 막아서 새 응답으로 다시 싸 줌
+async function clean(r) { return r.redirected ? new Response(await r.blob(), { status: 200, headers: r.headers }) : r; }
 self.addEventListener('fetch', e => {
   const req = e.request;
   if (req.method !== 'GET' || new URL(req.url).origin !== location.origin) return;
@@ -10,10 +12,12 @@ self.addEventListener('fetch', e => {
     const nav = req.mode === 'navigate' || /\/(index\.html)?$/.test(new URL(req.url).pathname);
     if (nav) {   // 첫 화면은 인터넷 되면 새 판, 안 되면 저장본
       try { const r = await fetch(req); if (r.ok) return r; } catch (err) {}
-      return (await c.match('index.html')) || (await c.match('./')) || Response.error();
+      const hit = (await c.match('./')) || (await c.match('index.html'));
+      return hit ? clean(hit) : Response.error();
     }
     let r = await c.match(req, { ignoreSearch: true });
     if (!r) return fetch(req);
+    r = await clean(r);
     const range = req.headers.get('range');
     if (range) {   // 영상·소리는 사파리가 조각으로 달라고 해서 잘라서 줌
       const buf = await r.arrayBuffer(), n = buf.byteLength, m = /bytes=(\d*)-(\d*)/.exec(range) || [];
