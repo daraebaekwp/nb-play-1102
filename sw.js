@@ -1,7 +1,7 @@
 /* 11/6 기차용: 저장해 둔 파일로 인터넷 없이 하기 */
-const CN = 'nb-offline-1';
+const CN = 'nb-offline-2';
 self.addEventListener('install', () => self.skipWaiting());
-self.addEventListener('activate', e => e.waitUntil(self.clients.claim()));
+self.addEventListener('activate', e => e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CN).map(k => caches.delete(k)))).then(() => self.clients.claim())));
 self.addEventListener('fetch', e => {
   const req = e.request;
   if (req.method !== 'GET' || new URL(req.url).origin !== location.origin) return;
