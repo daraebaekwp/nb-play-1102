@@ -5315,5 +5315,35 @@ function applyFocus(root) { (root || document).querySelectorAll('img').forEach(i
   { const par = im.parentElement, k = m[1].normalize('NFC'); if (par && par.matches('.cd .th')) { const x = ACT_POS[k] != null ? ACT_POS[k] : f ? Math.max(0, Math.min(100, Math.round((f[0] - 23) / 0.54))) : 50; im.style.setProperty('object-position', x + '% 50%', 'important'); } } }); }
 new MutationObserver(ms => ms.forEach(m => m.addedNodes.forEach(n => { if (n.nodeType === 1) applyFocus(n.parentNode || n); }))).observe(document.body, { childList:true, subtree:true });
 </script>
+<div id="nbOff" style="position:fixed;left:10px;top:10px;z-index:99999;display:none;font:600 14px -apple-system,sans-serif;background:rgba(40,28,18,.88);color:#fff6e6;border:1px solid #c9a46a;border-radius:999px;padding:8px 14px;cursor:pointer;-webkit-user-select:none;user-select:none"></div>
+<script>/* 11/6 기차용 저장: 와이파이에서 한 번 누르면 인터넷 없이 할 수 있음 */
+(function(){
+  if(!('serviceWorker' in navigator)||!window.caches) return;
+  navigator.serviceWorker.register('sw.js').catch(function(){});
+  var CN='nb-offline-1', el=document.getElementById('nbOff'), busy=false;
+  function show(t){ el.textContent=t; el.style.display='block'; }
+  function flag(v){ try{ if(v) localStorage.setItem('nbOffline','1'); else localStorage.removeItem('nbOffline'); }catch(e){} }
+  function done(){ try{ return localStorage.getItem('nbOffline')==='1'; }catch(e){ return false; } }
+  async function start(){
+    if(done()){ var c0=await caches.open(CN); if(await c0.match('index.html')) return; flag(false); }
+    if(!navigator.onLine) return;
+    show('🚂 기차용 저장 (870MB, 와이파이에서)');
+  }
+  el.onclick=async function(){
+    if(busy) return; busy=true;
+    try{ if(navigator.storage&&navigator.storage.persist) await navigator.storage.persist(); }catch(e){}
+    var list; try{ list=await (await fetch('files.json',{cache:'no-store'})).json(); }catch(e){ show('인터넷 연결을 확인해 주세요'); busy=false; return; }
+    var c=await caches.open(CN), i=0, ok=0, fail=0, n=list.length, full=false;
+    async function one(f){ try{ if(await c.match(f)){ ok++; return; } var r=await fetch(f,{cache:'no-store'}); if(!r.ok) throw 0; await c.put(f,r); ok++; }catch(e){ fail++; if(e&&e.name==='QuotaExceededError') full=true; } }
+    async function worker(){ while(i<n&&!full){ var f=list[i++]; await one(f); show('저장 중 '+Math.floor((ok+fail)*100/n)+'% (화면 켜 두기)'); } }
+    await Promise.all([worker(),worker(),worker(),worker(),worker()]);
+    busy=false;
+    if(full){ show('아이패드 저장 공간이 부족해요'); return; }
+    if(fail){ show('일부 실패 '+fail+'개 · 다시 누르기'); return; }
+    flag(true); show('✓ 이제 인터넷 없이 할 수 있어요'); setTimeout(function(){ el.style.display='none'; },4000);
+  };
+  start();
+})();
+</script>
 </body>
 </html>
